@@ -119,8 +119,8 @@ services:
       - --executor=docker
       - --docker-image=alpine:latest
       - --description=docker-runner
-      - --docker-dns=172.18.0.1
-      - --docker-network-mode=gitlab-network
+      # - --docker-dns=172.18.0.1
+      - --docker-network-mode=host
       # - --docker-network-mode=gitlab-network
       # - --docker-volumes=/var/run/docker.sock:/var/run/docker.sock
 
