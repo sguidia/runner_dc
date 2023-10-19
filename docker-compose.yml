@@ -1,0 +1,129 @@
+# version: '3'
+
+# services:
+#   gitlab-runner:
+#     image: gitlab/gitlab-runner:latest
+#     container_name: gitlab-runner
+#     depends_on:
+#       - docker-dind    
+#     # networks:
+#     #   - runner2_default
+#     extra_hosts:
+#       - "gitlab.lan:172.18.0.2"
+#     volumes:
+#       - /var/run/docker.sock:/var/run/docker.sock
+#       - ./gitlab-runner-config:/etc/gitlab-runner
+#     environment:
+#       - DOCKER_HOST=tcp://docker-dind:2375
+
+#   docker-dind:
+#     image: docker:24.0.6-dind
+#     container_name: docker-dind
+#     privileged: true
+#     environment:
+#       - DOCKER_TLS_CERTDIR=/certs
+#     volumes:
+#       - docker-certs:/certs/client
+#       - /var/lib/docker
+
+#   gitlab-runner-register:
+#     image: gitlab/gitlab-runner:latest
+#     container_name: gitlab-runner-register
+#     # networks:
+#     #   - runner2_default
+#     extra_hosts:
+#       - "gitlab.lan:172.18.0.2"
+#     depends_on:
+#       - docker-dind
+#     command:
+#       - register
+#       - --non-interactive
+#       - --url=http://gitlab.lan/
+#       - --registration-token=glrt-EjSsxRkx7Cvw2pxJ2wzy
+#       - --executor=docker
+#       - --description=Docker Runner
+#       - --docker-image=docker:latest
+#       - --docker-network-mode=runner2_default
+#     volumes:
+#       - ./gitlab-runner-config:/etc/gitlab-runner
+
+# volumes:
+#   docker-certs:
+
+
+# # networks:
+# #   gitlab-network:
+# #     external: true
+
+
+
+version: "3.8"
+
+services:
+  dind:
+    image: docker:24.0.6-dind
+    restart: always
+    privileged: true
+    networks:
+      - gitlab-network
+    extra_hosts:
+      - "gitlab.lan:172.18.0.2"
+    environment:
+      DOCKER_TLS_CERTDIR: ""
+    command:
+      - --storage-driver=overlay2
+
+  runner:
+    restart: always
+    image: gitlab/gitlab-runner:latest
+    container_name: gitlab-runner2    
+    networks:
+      - gitlab-network 
+
+
+    extra_hosts:
+      - "gitlab.lan:172.18.0.2"
+    depends_on:
+      - dind
+    environment:
+      - DOCKER_HOST=tcp://dind:2375
+    volumes:
+      # - /var/run/docker.sock:/var/run/docker.sock:z
+      - ./config:/etc/gitlab-runner:z
+
+
+  register-runner:
+    restart: 'no'
+    image: gitlab/gitlab-runner:alpine
+    container_name: gitlab-register
+    networks:
+      - gitlab-network
+    extra_hosts:
+      - "gitlab.lan:172.18.0.2"
+    depends_on:
+      - dind
+    environment:
+      - CI_SERVER_URL=${GITLAB_URL}
+      - REGISTRATION_TOKEN=${RUNNER_TOKEN}
+    volumes:
+      # - /home/daboogie/projects/gitlab/runner2/setup_runner.sh:/etc/gitlab-runner/setup_runner.sh
+      - ./config:/etc/gitlab-runner:z
+    # command: /etc/gitlab-runner/setup_runner.sh
+
+    command:
+      - register
+      - --non-interactive
+      - --locked=false
+      - --url=${GITLAB_URL}
+      - --token=${RUNNER_TOKEN}
+      - --executor=docker
+      - --docker-image=alpine:latest
+      - --description=docker-runner
+      - --docker-dns=172.18.0.1
+      - --docker-network-mode=gitlab-network
+      # - --docker-network-mode=gitlab-network
+      # - --docker-volumes=/var/run/docker.sock:/var/run/docker.sock
+
+networks:
+  gitlab-network:
+    external: true
